@@ -27,7 +27,7 @@ def _configurar_ruta() -> None:
 
 _configurar_ruta()
 
-# pylint: disable=wrong-import-position
+# pylint: disable=wrong-import-position,import-error
 from comparator import comparar_carpetas  # noqa: E402
 from reporter import generar_reporte_html  # noqa: E402
 
