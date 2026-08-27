@@ -554,8 +554,8 @@ def comparar_carpetas(
             f"La carpeta SAT no existe o no es un directorio: '{ruta_sat}'"
         )
 
-    archivos_erp = {f for f in os.listdir(ruta_erp) if f.lower().endswith(".xml")}
-    archivos_sat = {f for f in os.listdir(ruta_sat) if f.lower().endswith(".xml")}
+    archivos_erp = {f.lower() for f in os.listdir(ruta_erp) if f.lower().endswith(".xml")}
+    archivos_sat = {f.lower() for f in os.listdir(ruta_sat) if f.lower().endswith(".xml")}
 
     if not archivos_erp and not archivos_sat:
         raise ValueError(
@@ -564,6 +564,8 @@ def comparar_carpetas(
 
     todos_los_archivos = sorted(archivos_erp | archivos_sat)
     total = len(todos_los_archivos)
+
+    print(todos_los_archivos)
 
     _imprimir_cabecera(ruta_erp, ruta_sat, len(archivos_erp), len(archivos_sat), total)
 
