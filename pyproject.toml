@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.backends.legacy:build"
+
+[project]
+name = "comparador-cfdis"
+version = "1.0.0"
+description = "Compara exhaustivamente archivos XML de CFDI entre un ERP y el SAT, generando un reporte HTML con resaltado inline de diferencias a nivel de caracteres."
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+
+dependencies = [
+    "lxml>=5.3.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pylint>=3.3.0",
+]
+
+[project.scripts]
+comparar-cfdis = "src.main:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["src*"]
