@@ -74,8 +74,11 @@ def main() -> None:
         ruta_reporte = generar_reporte_html(resultado, ruta_reportes)
         print("✔  Reporte HTML generado exitosamente:")
         print(f"   {ruta_reporte}\n")
+    except ValueError as exc:
+        print(f"\n[ERROR] Discrepancia en los conteos de registros ausentes: {exc}")
+        sys.exit(1)
     except OSError as exc:
-        print(f"\n[ERROR] No se pudo guardar el reporte HTML: {exc}")
+        print(f"\n[ERROR] No se pudo guardar el reporte o las listas de ausentes: {exc}")
         sys.exit(1)
 
 

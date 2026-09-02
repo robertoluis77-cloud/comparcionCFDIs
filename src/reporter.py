@@ -671,12 +671,134 @@ def _construir_cuerpo_html(
     )
 
 
+def _generar_lista_ausentes(
+    registros: List[ResultadoArchivo],
+    ruta_archivo: str,
+    etiqueta: str,
+    total_esperado: int,
+) -> int:
+    """
+    Escribe un archivo de texto con el listado detallado de registros ausentes.
+
+    Cada línea del archivo contiene el nombre del archivo CFDI ausente.
+    Al finalizar, verifica que el conteo escrito coincida con el total esperado;
+    si difieren, lanza un error descriptivo para garantizar integridad de datos.
+
+    Args:
+        registros: Lista de ``ResultadoArchivo`` filtrada para un estado de ausencia.
+        ruta_archivo: Ruta completa (con nombre) donde se escribirá el archivo de texto.
+        etiqueta: Nombre descriptivo del grupo (ej. "ERP" o "SAT") para mensajes de error.
+        total_esperado: Cantidad de registros que se espera escribir (del resumen HTML).
+
+    Returns:
+        Número de registros efectivamente escritos.
+
+    Raises:
+        ValueError: Si el conteo escrito no coincide con ``total_esperado``.
+        OSError: Si ocurre un error al abrir o escribir el archivo.
+    """
+    separador = "-" * 72
+
+    with open(ruta_archivo, "w", encoding="utf-8") as salida:
+        salida.write(f"Lista de archivos AUSENTES EN {etiqueta}\n")
+        salida.write(f"Total de registros: {total_esperado}\n")
+        salida.write(f"{separador}\n")
+
+        for num, registro in enumerate(registros, start=1):
+            salida.write(f"{num:>5}. {registro.nombre_archivo}\n")
+
+    registros_escritos = len(registros)
+
+    if registros_escritos != total_esperado:
+        raise ValueError(
+            f"Discrepancia en lista de ausentes en {etiqueta}: "
+            f"se esperaban {total_esperado} registros pero se escribieron "
+            f"{registros_escritos}. Verifique la integridad del resultado de comparación."
+        )
+
+    return registros_escritos
+
+
+def generar_listas_ausentes(
+    resultado_comparacion: ResultadoComparacion,
+    carpeta_reportes: str,
+    timestamp: str,
+) -> List[str]:
+    """
+    Genera los dos archivos de texto con los listados de registros ausentes.
+
+    Crea (si no existe) el subdirectorio ``listasDeAusentes/`` dentro de
+    ``carpeta_reportes`` y escribe un archivo por cada grupo de ausentes:
+    - ``ausentes_en_ERP_<timestamp>.txt``: archivos presentes en SAT pero no en ERP.
+    - ``ausentes_en_SAT_<timestamp>.txt``: archivos presentes en ERP pero no en SAT.
+
+    El timestamp se comparte con el reporte HTML para correlacionar fácilmente
+    los tres artefactos generados en la misma ejecución.
+
+    Args:
+        resultado_comparacion: Objeto con todos los resultados de la comparación.
+        carpeta_reportes: Ruta base de la carpeta de reportes (``reports/``).
+        timestamp: Cadena de fecha/hora en formato ``YYYYMMDD_HHMMSS`` para el nombre.
+
+    Returns:
+        Lista con las rutas absolutas de los dos archivos generados
+        (índice 0 = ERP, índice 1 = SAT).
+
+    Raises:
+        OSError: Si no se puede crear el subdirectorio o escribir los archivos.
+        ValueError: Si hay discrepancia entre los conteos escritos y los esperados.
+    """
+    carpeta_listas = os.path.join(carpeta_reportes, "listasDeAusentes")
+
+    try:
+        os.makedirs(carpeta_listas, exist_ok=True)
+    except OSError as exc:
+        raise OSError(
+            f"No se pudo crear el directorio para las listas de ausentes "
+            f"'{carpeta_listas}': {exc}"
+        ) from exc
+
+    # --- Ausentes en ERP ---
+    ausentes_erp = [
+        r for r in resultado_comparacion.resultados
+        if r.estado == EstadoArchivo.AUSENTE_EN_ERP
+    ]
+    total_esperado_erp = resultado_comparacion.total_ausentes_erp
+    ruta_erp = os.path.join(carpeta_listas, f"ausentes_en_ERP_{timestamp}.txt")
+
+    escritos_erp = _generar_lista_ausentes(
+        ausentes_erp, ruta_erp, "ERP", total_esperado_erp
+    )
+    ruta_erp_abs = os.path.abspath(ruta_erp)
+    print(f"✔  Lista de ausentes en ERP generada: {ruta_erp_abs} ({escritos_erp} registros)")
+
+    # --- Ausentes en SAT ---
+    ausentes_sat = [
+        r for r in resultado_comparacion.resultados
+        if r.estado == EstadoArchivo.AUSENTE_EN_SAT
+    ]
+    total_esperado_sat = resultado_comparacion.total_ausentes_sat
+    ruta_sat = os.path.join(carpeta_listas, f"ausentes_en_SAT_{timestamp}.txt")
+
+    escritos_sat = _generar_lista_ausentes(
+        ausentes_sat, ruta_sat, "SAT", total_esperado_sat
+    )
+    ruta_sat_abs = os.path.abspath(ruta_sat)
+    print(f"✔  Lista de ausentes en SAT generada: {ruta_sat_abs} ({escritos_sat} registros)")
+
+    return [ruta_erp_abs, ruta_sat_abs]
+
+
 def generar_reporte_html(
     resultado_comparacion: ResultadoComparacion,
     carpeta_reportes: str,
 ) -> str:
     """
     Genera el archivo HTML del reporte de comparación de CFDIs.
+
+    Además del HTML, genera automáticamente los archivos de texto con los
+    listados de ausentes en ERP y en SAT dentro de ``reports/listasDeAusentes/``,
+    usando el mismo timestamp para correlacionar los tres artefactos.
 
     El HTML es completamente autocontenido: CSS y JS embebidos, sin
     dependencias externas. Puede visualizarse en cualquier navegador.
@@ -690,10 +812,12 @@ def generar_reporte_html(
 
     Raises:
         OSError: Si no se puede crear la carpeta o escribir el archivo.
+        ValueError: Si hay discrepancia en los conteos de registros ausentes.
     """
     os.makedirs(carpeta_reportes, exist_ok=True)
     ahora = datetime.now()
-    nombre_archivo = f"reporte_comparacion_{ahora.strftime('%Y%m%d_%H%M%S')}.html"
+    timestamp = ahora.strftime("%Y%m%d_%H%M%S")
+    nombre_archivo = f"reporte_comparacion_{timestamp}.html"
     ruta_salida = os.path.join(carpeta_reportes, nombre_archivo)
 
     secciones_partes: List[str] = [
@@ -716,5 +840,8 @@ def generar_reporte_html(
 
     with open(ruta_salida, "w", encoding="utf-8") as archivo_salida:
         archivo_salida.write(contenido_html)
+
+    # Generar listas de ausentes con el mismo timestamp que el reporte HTML.
+    generar_listas_ausentes(resultado_comparacion, carpeta_reportes, timestamp)
 
     return os.path.abspath(ruta_salida)
