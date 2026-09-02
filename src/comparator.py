@@ -524,17 +524,25 @@ def _imprimir_cabecera(
     print(f"{separador}\n")
 
 
-def _imprimir_resumen(resultado_global: ResultadoComparacion) -> None:
+def _imprimir_resumen(
+    resultado_global: ResultadoComparacion,
+    cant_erp: int,
+    cant_sat: int,
+) -> None:
     """
     Imprime en consola el resumen final de la comparación.
 
     Args:
         resultado_global: Objeto con todos los resultados de la comparación.
+        cant_erp: Número total de archivos XML encontrados en la carpeta ERP.
+        cant_sat: Número total de archivos XML encontrados en la carpeta SAT.
     """
     separador = "=" * 60
     print(f"\n{separador}")
     print("  RESUMEN FINAL")
     print(separador)
+    print(f"  📁  Archivos XML en el SAT: {cant_sat}")
+    print(f"  📁  Archivos XML en el ERP: {cant_erp}")
     print(f"  ✔  Iguales          : {resultado_global.total_iguales}")
     print(f"  ✘  Diferentes       : {resultado_global.total_diferentes}")
     print(f"  ⚠  Ausentes en ERP : {resultado_global.total_ausentes_erp}")
@@ -669,6 +677,6 @@ def comparar_carpetas(
         resultado = _procesar_archivo(nombre, indice, total, mapa_erp, mapa_sat)
         resultado_global.resultados.append(resultado)
 
-    _imprimir_resumen(resultado_global)
+    _imprimir_resumen(resultado_global, len(mapa_erp), len(mapa_sat))
 
     return resultado_global
